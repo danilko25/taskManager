@@ -15,21 +15,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
+from rest_framework.authtoken import views
 
-from tasks.views import TaskList, CategoryDetail, CategoryList, TaskDetail
+from tasks.views import TaskList, CategoryDetail, CategoryList, TaskDetail, RegisterUser
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="Snippets API",
+      title="TaskManager API",
       default_version='v1',
       description="Test description",
-      terms_of_service="https://www.google.com/policies/terms/",
-      contact=openapi.Contact(email="contact@snippets.local"),
-      license=openapi.License(name="BSD License"),
    ),
    public=True,
    permission_classes=(permissions.AllowAny,),
@@ -37,11 +35,14 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('task/', TaskList.as_view()),
-    path('task/<int:pk>', TaskDetail.as_view()),
-    path('category/', CategoryList.as_view()),
-    path('category/<int:pk>', CategoryDetail.as_view()),
+    path('drf-auth/', include('rest_framework.urls')),
+    path('task/', TaskList.as_view(), name="tasks"),
+    path('task/<int:pk>', TaskDetail.as_view(), name="tasks"),
+    path('category/', CategoryList.as_view(), name="task-categories"),
+    path('category/<int:pk>', CategoryDetail.as_view(), name="task-categories"),
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('api-token-auth/', views.obtain_auth_token),
+    path('register/', RegisterUser.as_view()),
 ]

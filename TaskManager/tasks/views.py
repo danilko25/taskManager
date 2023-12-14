@@ -3,14 +3,39 @@ from django.http import Http404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
+from rest_framework.authtoken.admin import User
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from tasks.models import Task, Category
-from tasks.serializers import TaskSerializer, CategorySerializer
+from tasks.permissions import IsAdminForDelete
+from tasks.serializers import TaskSerializer, CategorySerializer, UserSerializer
+from rest_framework.authtoken.models import Token
 
 
 # Create your views here.
+
+class RegisterUser(APIView):
+    def post(self, request):
+        serializer = UserSerializer(data = request.data)
+
+        if not serializer.is_valid():
+            return Response({"status": 403, "errors": serializer.errors, "messge": "Something went wrong"})
+
+        serializer.save()
+
+        user = User.objects.get(username = serializer.data['username'])
+        token_obj, _ = Token.objects.get_or_create(user=user)
+
+        return Response({"status": 200, "payload": serializer.data, "token": str(token_obj), "messge": "Your data is saved"})
+"""
+        if serializer.is_valid():
+            serializer.save()
+            user = User.objects.get(username=serializer.data['username'])
+            token_obj, _ = Token.objects.get_or_create(user=user)
+            return Response({'token' : str(token_obj), 'message':"Your data is saved"}, status=status.HTTP_200_OK)
+        return Response("Something went wrong", status=status.HTTP_403_FORBIDDEN)
+"""
 class CategoryList(APIView):
 
     @swagger_auto_schema(operation_description="Get a list of all categories", responses={
@@ -19,7 +44,7 @@ class CategoryList(APIView):
     def get(self, request, format=None):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
-        return Response(serializer.data)
+        return Response({"categories":serializer.data}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(operation_description="Create a new category", request_body=CategorySerializer, responses={
         201: openapi.Response("Created category", CategorySerializer),
@@ -34,6 +59,7 @@ class CategoryList(APIView):
 
 
 class CategoryDetail(APIView):
+    permission_classes = [IsAdminForDelete]
     def get_object(self, pk):
         try:
             return Category.objects.get(pk=pk)
@@ -58,7 +84,7 @@ class CategoryDetail(APIView):
         serializer = CategorySerializer(category, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({'category' : serializer.data})
+            return Response({'category' : serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(operation_description="Delete a category by id", responses={
@@ -85,12 +111,16 @@ class TaskList(APIView):
     def post(self, request, format=None):
         serializer = TaskSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            try:
+                serializer.save()
+            except:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
             return Response({'task': serializer.data}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TaskDetail(APIView):
+    permission_classes = [IsAdminForDelete]
     def get_object(self, pk):
         try:
             return Task.objects.get(pk=pk)
