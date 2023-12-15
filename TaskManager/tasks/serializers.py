@@ -1,7 +1,19 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from tasks.models import Category, Task
+from django.contrib.auth.models import User
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'password']
+
+    def create(self, validated_data):
+        user = User.objects.create(username = validated_data['username'])
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
 
 class CategorySerializer(serializers.Serializer):
     id = serializers.ReadOnlyField()
@@ -23,8 +35,12 @@ class TaskSerializer(serializers.Serializer):
     deadline = serializers.DateTimeField()
     priority = serializers.IntegerField()
     status = serializers.CharField(max_length=100)
-    creation_date = serializers.DateTimeField()
-
+    creation_date = serializers.DateTimeField(default=serializers.CreateOnlyDefault(timezone.now))
+    def validate(self, data):
+        if data['creation_date'] > data['deadline']:
+            raise serializers.ValidationError("Deadline cannot be earlier than creation date.")
+        else:
+            return data
     def create(self, validated_data):
         return Task.objects.create(**validated_data)
 
